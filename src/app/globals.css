@@ -1,26 +1,79 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --color-ink: #3b3355;
+  --color-paper: #fff8ef;
+  --color-blush: #f7a8c4;
+  --color-berry: #e0628f;
+  --color-sunny: #ffd66b;
+  --color-sky: #8fd0f5;
+  --color-mint: #9fdcc2;
+  --color-lavender: #c7b3f0;
+  --color-petal: #fbe7ef;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-sans: var(--font-nunito), system-ui, sans-serif;
+  --font-display: var(--font-baloo), var(--font-nunito), system-ui, sans-serif;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --animate-fade-in: fade-in 0.6s ease-out both;
+  --animate-hop: hop 1.2s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes hop {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    40% {
+      transform: translateY(-18px) rotate(-8deg);
+    }
+    60% {
+      transform: translateY(-18px) rotate(8deg);
+    }
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-petal);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Floating label rendered above each 3D hotspot via drei <Html>. */
+.hotspot-label {
+  white-space: nowrap;
+  border-radius: 9999px;
+  background: var(--color-paper);
+  padding: 0.35rem 1rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  border: 2px solid var(--color-blush);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--color-berry) 35%, transparent);
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+}
+
+.hotspot-label--active,
+.hotspot-label:hover {
+  background: var(--color-berry);
+  border-color: var(--color-berry);
+  color: var(--color-paper);
+  transform: translateY(-3px) rotate(-2deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-hop {
+    animation: none;
+  }
 }
