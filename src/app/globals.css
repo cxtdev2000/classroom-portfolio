@@ -48,6 +48,18 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Lift the WebGL canvas above the TV's YouTube layer (z-index 0) but below labels (10+), so the in-scene
+   occluder decides what covers the video. R3F listens on the outer wrapper, so the canvas and its inner div can
+   ignore pointers and let taps reach the focused TV. */
+.scene-canvas > div {
+  pointer-events: none;
+}
+
+.scene-canvas canvas {
+  position: relative;
+  z-index: 1;
+}
+
 /* Floating label rendered above each 3D hotspot via drei <Html>. */
 .hotspot-label {
   white-space: nowrap;
@@ -72,8 +84,50 @@ body {
   transform: translateY(-3px) rotate(-2deg);
 }
 
+/* Speech bubble that pops over a poked prop (plants, clock, stars…). */
+.poke-bubble {
+  display: block;
+  white-space: nowrap;
+  border-radius: 9999px;
+  background: var(--color-paper);
+  padding: 0.3rem 0.85rem;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  border: 2px solid var(--color-sunny);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--color-berry) 25%, transparent);
+  animation: poke-pop 1.8s ease-out both;
+}
+
+@keyframes poke-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.6);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1.06);
+  }
+  20% {
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-hop {
     animation: none;
+  }
+
+  .poke-bubble {
+    animation-name: fade-in;
+    animation-duration: 0.3s;
   }
 }

@@ -4,7 +4,15 @@ import { useEffect, useRef, type ComponentRef } from "react";
 import { useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import gsap from "gsap";
-import { cameraViews, type ViewId } from "./camera-views";
+import { Fog, type PerspectiveCamera } from "three";
+import {
+  cameraViews,
+  frameForAspect,
+  LANDSCAPE_FOV,
+  overviewPullBack,
+  PORTRAIT_FOV,
+  type ViewId,
+} from "./camera-views";
 
 type CameraRigProps = { view: ViewId };
 
@@ -32,18 +40,41 @@ const noLimits = {
 export function CameraRig({ view }: CameraRigProps) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls>>(null);
   const camera = useThree((state) => state.camera);
+  const get = useThree((state) => state.get);
+  // Rounded so mobile URL-bar resizes don't restart the tween on every pixel.
+  const aspect = useThree((state) => Math.round((state.size.width / state.size.height) * 20) / 20);
+  const baseFog = useRef<{ near: number; far: number } | null>(null);
+
+  // Portrait screens: wider lens, and fog/orbit distances follow the pulled-back overview.
+  useEffect(() => {
+    const { camera: lens, scene } = get();
+    (lens as PerspectiveCamera).fov = aspect < 1 ? PORTRAIT_FOV : LANDSCAPE_FOV;
+    lens.updateProjectionMatrix();
+    if (scene.fog instanceof Fog) {
+      baseFog.current ??= { near: scene.fog.near, far: scene.fog.far };
+      const pull = overviewPullBack(aspect);
+      scene.fog.near = baseFog.current.near * pull;
+      scene.fog.far = baseFog.current.far * pull;
+    }
+  }, [get, aspect]);
 
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
-    const { position, target } = cameraViews[view];
+    const { position, target } = frameForAspect(cameraViews[view], aspect);
     const duration = view === "overview" ? 2.2 : 1.6;
+    const pull = overviewPullBack(aspect);
+    const limits = {
+      ...overviewLimits,
+      minDistance: overviewLimits.minDistance * pull,
+      maxDistance: overviewLimits.maxDistance * pull,
+    };
 
     Object.assign(controls, noLimits);
     const timeline = gsap.timeline({
       defaults: { duration, ease: "power3.inOut" },
       onComplete: () => {
-        if (view === "overview") Object.assign(controls, overviewLimits);
+        if (view === "overview") Object.assign(controls, limits);
       },
     });
     timeline
@@ -53,7 +84,7 @@ export function CameraRig({ view }: CameraRigProps) {
     return () => {
       timeline.kill();
     };
-  }, [camera, view]);
+  }, [camera, view, aspect]);
 
   return (
     <OrbitControls

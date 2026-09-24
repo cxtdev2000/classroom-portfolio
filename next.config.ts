@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Bottom-left is taken by the background-music controls.
+  devIndicators: { position: "bottom-right" },
 };
 
 export default nextConfig;

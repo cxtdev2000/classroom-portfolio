@@ -1,7 +1,11 @@
 "use client";
 
+import { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
+import type { Group } from "three";
 import { palette } from "./palette";
+import { pickLine, Pokeable, secondsSince, usePoke } from "./pokeable";
 import { Backpack, Book, OpenNotebook, Pencil } from "./small-props";
 
 type StudentDeskProps = {
@@ -66,33 +70,49 @@ function StudentDesk({ position, frameColor, backpackColor, variant }: StudentDe
   );
 }
 
+const chairLines = pickLine(["Ngồi ngay ngắn nào! 🪑", "Ai vừa kéo ghế đấy? 😄", "Chỗ này của bạn nhỏ nào nhỉ?"]);
+
+/** Pupil's chair; a tap makes it hop and rock back into place. */
 function StudentChair({ position, color }: { position: [number, number, number]; color: string }) {
+  const { pokedAt, poke } = usePoke();
+  const chairRef = useRef<Group>(null);
+
+  useFrame(() => {
+    const chair = chairRef.current;
+    if (!chair) return;
+    const age = secondsSince(pokedAt);
+    chair.position.y = age < 0.45 ? Math.sin((age / 0.45) * Math.PI) * 0.12 : 0;
+    chair.rotation.z = age < 1.6 ? Math.sin(age * 14) * Math.exp(-age * 3) * 0.12 : 0;
+  });
+
   return (
-    <group position={position}>
-      <RoundedBox args={[0.4, 0.04, 0.38]} radius={0.015} position={[0, 0.44, 0]} castShadow>
-        <meshStandardMaterial color={palette.wood} />
-      </RoundedBox>
-      <RoundedBox args={[0.4, 0.22, 0.03]} radius={0.012} position={[0, 0.72, 0.18]} castShadow>
-        <meshStandardMaterial color={palette.wood} />
-      </RoundedBox>
-      {[
-        [-0.17, -0.16],
-        [0.17, -0.16],
-        [-0.17, 0.17],
-        [0.17, 0.17],
-      ].map(([x, z]) => (
-        <mesh key={`${x}${z}`} position={[x, 0.22, z]} castShadow>
-          <cylinderGeometry args={[0.016, 0.016, 0.44, 8]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
-      ))}
-      {[-0.17, 0.17].map((x) => (
-        <mesh key={x} position={[x, 0.58, 0.18]}>
-          <cylinderGeometry args={[0.014, 0.014, 0.3, 8]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
-      ))}
-    </group>
+    <Pokeable onPoke={poke} bubble={chairLines} bubbleOffset={[0, 1.05, 0]} position={position}>
+      <group ref={chairRef}>
+        <RoundedBox args={[0.4, 0.04, 0.38]} radius={0.015} position={[0, 0.44, 0]} castShadow>
+          <meshStandardMaterial color={palette.wood} />
+        </RoundedBox>
+        <RoundedBox args={[0.4, 0.22, 0.03]} radius={0.012} position={[0, 0.72, 0.18]} castShadow>
+          <meshStandardMaterial color={palette.wood} />
+        </RoundedBox>
+        {[
+          [-0.17, -0.16],
+          [0.17, -0.16],
+          [-0.17, 0.17],
+          [0.17, 0.17],
+        ].map(([x, z]) => (
+          <mesh key={`${x}${z}`} position={[x, 0.22, z]} castShadow>
+            <cylinderGeometry args={[0.016, 0.016, 0.44, 8]} />
+            <meshStandardMaterial color={color} />
+          </mesh>
+        ))}
+        {[-0.17, 0.17].map((x) => (
+          <mesh key={x} position={[x, 0.58, 0.18]}>
+            <cylinderGeometry args={[0.014, 0.014, 0.3, 8]} />
+            <meshStandardMaterial color={color} />
+          </mesh>
+        ))}
+      </group>
+    </Pokeable>
   );
 }
 

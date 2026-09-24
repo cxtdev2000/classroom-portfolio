@@ -32,7 +32,7 @@ export function SiteNav({ visible, active, onSelect, onHome }: SiteNavProps) {
             type="button"
             onClick={() => onSelect(item.id)}
             aria-current={active === item.id ? "page" : undefined}
-            className={`rounded-full px-3 py-1.5 text-sm font-bold transition md:px-4 ${
+            className={`whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] sm:px-3 sm:text-sm font-bold transition md:px-4 ${
               active === item.id ? "bg-berry text-paper" : "text-ink/70 hover:bg-blush/40 hover:text-ink"
             }`}
           >

@@ -4,15 +4,16 @@ import { useRef, useState, type ReactNode } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, useCursor } from "@react-three/drei";
 import { Vector3, type Group } from "three";
-import type { SectionId } from "@/content/portfolio";
+import type { FocusId } from "./camera-views";
+import { PokeProvider } from "./pokeable";
 
 type HotspotProps = {
-  id: SectionId;
+  id: FocusId;
   label: string;
   position: [number, number, number];
   labelOffset: [number, number, number];
   interactive: boolean;
-  onSelect: (id: SectionId) => void;
+  onSelect: (id: FocusId) => void;
   children: ReactNode;
 };
 
@@ -49,9 +50,9 @@ export function Hotspot({ id, label, position, labelOffset, interactive, onSelec
       onPointerOut={() => setHovered(false)}
       onClick={handleClick}
     >
-      {children}
+      <PokeProvider value={false}>{children}</PokeProvider>
       {interactive && (
-        <Html position={labelOffset} center zIndexRange={[10, 0]}>
+        <Html position={labelOffset} center zIndexRange={[30, 10]}>
           <button
             type="button"
             onClick={() => onSelect(id)}

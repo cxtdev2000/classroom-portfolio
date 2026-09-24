@@ -1,7 +1,11 @@
 "use client";
 
+import { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import type { Mesh } from "three";
 import { createRandom } from "./canvas-texture";
 import { palette, pastelCycle } from "./palette";
+import { pickLine, Pokeable } from "./pokeable";
 import { Plant } from "./small-props";
 
 const WIDTH = 1.4;
@@ -86,24 +90,47 @@ export function Bookshelf({ position }: { position: [number, number, number] }) 
 }
 
 const beadColors = [palette.berry, palette.sunny, palette.sky, palette.leaf];
+const BEADS = 5;
+const ABACUS_WIDTH = 0.5;
+const BEAD_SHIFT = 0.14;
+const abacusLines = pickLine(["1 + 1 = 2 🧮", "Đếm nhẩm cùng cô nào!", "Thêm một hạt nữa ✨", "Tính nhanh, nhớ lâu 🧠"]);
 
+const beadX = (bead: number) => -ABACUS_WIDTH / 2 + 0.05 + bead * 0.045;
+// Starting count of beads pushed right on each row (the staircase the abacus shows at rest).
+const restCount = (row: number) => row;
+
+/** Wooden abacus. Each tap counts on by one: every row pushes one more bead across, wrapping back to none. */
 function Abacus({ position }: { position: [number, number, number] }) {
-  const width = 0.5;
   const height = 0.36;
+  const beadRefs = useRef<(Mesh | null)[]>([]);
+  const taps = useRef(0);
+
+  useFrame((_, delta) => {
+    const ease = 1 - Math.exp(-delta * 10);
+    beadRefs.current.forEach((mesh, index) => {
+      if (!mesh) return;
+      const row = Math.floor(index / BEADS);
+      const bead = index % BEADS;
+      const count = (restCount(row) + taps.current) % (BEADS + 1);
+      const target = beadX(bead) + (bead >= BEADS - count ? BEAD_SHIFT : 0);
+      mesh.position.x += (target - mesh.position.x) * ease;
+    });
+  });
+
   return (
-    <group position={position}>
+    <Pokeable onPoke={() => (taps.current += 1)} bubble={abacusLines} bubbleOffset={[0, height + 0.3, 0]} position={position}>
       {[-1, 1].map((side) => (
-        <mesh key={side} position={[side * (width / 2), height / 2, 0]} castShadow>
+        <mesh key={side} position={[side * (ABACUS_WIDTH / 2), height / 2, 0]} castShadow>
           <boxGeometry args={[0.03, height, 0.08]} />
           <meshStandardMaterial color={palette.wood} />
         </mesh>
       ))}
       <mesh position={[0, 0.015, 0]} castShadow>
-        <boxGeometry args={[width + 0.1, 0.03, 0.12]} />
+        <boxGeometry args={[ABACUS_WIDTH + 0.1, 0.03, 0.12]} />
         <meshStandardMaterial color={palette.woodDark} />
       </mesh>
       <mesh position={[0, height, 0]}>
-        <boxGeometry args={[width + 0.03, 0.03, 0.08]} />
+        <boxGeometry args={[ABACUS_WIDTH + 0.03, 0.03, 0.08]} />
         <meshStandardMaterial color={palette.wood} />
       </mesh>
       {beadColors.map((color, row) => {
@@ -111,11 +138,16 @@ function Abacus({ position }: { position: [number, number, number] }) {
         return (
           <group key={color} position={[0, y, 0]}>
             <mesh rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[0.004, 0.004, width, 6]} />
+              <cylinderGeometry args={[0.004, 0.004, ABACUS_WIDTH, 6]} />
               <meshStandardMaterial color={palette.graphite} />
             </mesh>
-            {Array.from({ length: 5 }, (_, bead) => (
-              <mesh key={bead} position={[-width / 2 + 0.05 + bead * 0.045 + (bead >= 5 - row ? 0.14 : 0), 0, 0]} scale={[0.7, 1, 1]}>
+            {Array.from({ length: BEADS }, (_, bead) => (
+              <mesh
+                key={bead}
+                ref={(mesh) => { beadRefs.current[row * BEADS + bead] = mesh; }}
+                position={[beadX(bead) + (bead >= BEADS - restCount(row) ? BEAD_SHIFT : 0), 0, 0]}
+                scale={[0.7, 1, 1]}
+              >
                 <sphereGeometry args={[0.028, 14, 10]} />
                 <meshStandardMaterial color={color} />
               </mesh>
@@ -123,6 +155,6 @@ function Abacus({ position }: { position: [number, number, number] }) {
           </group>
         );
       })}
-    </group>
+    </Pokeable>
   );
 }

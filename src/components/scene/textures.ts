@@ -320,3 +320,32 @@ export const digitBlocks = [
   { digit: "3", color: palette.sunny, draw: drawDigitBlock("3", palette.sunny) },
   { digit: "+", color: palette.mint, draw: drawDigitBlock("+", palette.mint) },
 ];
+
+function makeGlyph(glyph: string, color: string): CanvasDraw {
+  return (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `bold ${h * 0.8}px ${handFont}`;
+    ctx.fillText(glyph, w / 2, h / 2);
+  };
+}
+
+export const drawSparkle = makeGlyph("✦", palette.sunny);
+export const drawStarGlyph = makeGlyph("★", palette.gold);
+export const drawHeart = makeGlyph("♥", palette.berry);
+
+/** Teardrop of water for the watering-can pour. */
+export const drawWaterDrop: CanvasDraw = (ctx, w, h) => {
+  ctx.clearRect(0, 0, w, h);
+  const gradient = ctx.createLinearGradient(0, 0, w, h);
+  gradient.addColorStop(0, "#e2f5ff");
+  gradient.addColorStop(1, palette.sky);
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.moveTo(w / 2, h * 0.08);
+  ctx.bezierCurveTo(w * 0.8, h * 0.45, w * 0.82, h * 0.9, w / 2, h * 0.92);
+  ctx.bezierCurveTo(w * 0.18, h * 0.9, w * 0.2, h * 0.45, w / 2, h * 0.08);
+  ctx.fill();
+};

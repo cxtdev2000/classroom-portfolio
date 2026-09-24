@@ -1,13 +1,16 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Float, QuadraticBezierLine } from "@react-three/drei";
-import { DoubleSide, type Group } from "three";
+import { DoubleSide, type Group, type Mesh } from "three";
 import { useCanvasTexture } from "./canvas-texture";
 import { palette, pastelCycle } from "./palette";
+import { pickLine, Pokeable, PokeBurst, secondsSince, usePoke } from "./pokeable";
 import { pennant, smallStar, softExtrude } from "./shapes";
-import { digitBlocks } from "./textures";
+import { digitBlocks, drawSparkle, drawStarGlyph } from "./textures";
+
+type Vec3 = [number, number, number];
 
 type BuntingProps = {
   position: [number, number, number];
@@ -17,8 +20,22 @@ type BuntingProps = {
   sag: number;
 };
 
-/** Pennant garland hanging along local X, facing +Z. */
+const buntingLines = pickLine(["Chào mừng cả lớp! 🎉", "Lớp mình vui nhất trường 🎊", "Hoan hô! 👏"]);
+
+/** Pennant garland hanging along local X, facing +Z. A tap sends a flutter rippling along the string. */
 export function Bunting({ position, rotation, length, count, sag }: BuntingProps) {
+  const { pokedAt, poke } = usePoke();
+  const flagRefs = useRef<(Mesh | null)[]>([]);
+
+  useFrame(() => {
+    const age = secondsSince(pokedAt);
+    flagRefs.current.forEach((flag, index) => {
+      if (!flag) return;
+      const local = age - index * 0.06;
+      flag.rotation.x = local > 0 && local < 2.5 ? Math.sin(local * 12) * Math.exp(-local * 2) * 0.7 : 0;
+    });
+  });
+
   const flags = Array.from({ length: count }, (_, index) => {
     const t = (index + 0.5) / count;
     const u = 2 * t - 1;
@@ -31,7 +48,7 @@ export function Bunting({ position, rotation, length, count, sag }: BuntingProps
   });
 
   return (
-    <group position={position} rotation={rotation}>
+    <Pokeable onPoke={poke} bubble={buntingLines} bubbleOffset={[0, 0.2, 0.2]} position={position} rotation={rotation}>
       <QuadraticBezierLine
         start={[-length / 2, 0, 0]}
         end={[length / 2, 0, 0]}
@@ -39,18 +56,29 @@ export function Bunting({ position, rotation, length, count, sag }: BuntingProps
         color={palette.ink}
         lineWidth={1.2}
       />
-      {flags.map((flag) => (
-        <mesh key={flag.x} position={[flag.x, flag.y, 0.005]} rotation={[0, 0, flag.tilt]}>
-          <shapeGeometry args={[pennant]} />
-          <meshStandardMaterial color={flag.color} side={DoubleSide} />
-        </mesh>
+      {flags.map((flag, index) => (
+        <group key={flag.x} position={[flag.x, flag.y, 0.005]} rotation={[0, 0, flag.tilt]}>
+          <mesh ref={(mesh) => { flagRefs.current[index] = mesh; }}>
+            <shapeGeometry args={[pennant]} />
+            <meshStandardMaterial color={flag.color} side={DoubleSide} />
+          </mesh>
+        </group>
       ))}
-    </group>
+    </Pokeable>
   );
 }
 
 type SymbolKind = "plus" | "minus" | "times" | "divide" | "equals";
 type SymbolProps = { kind: SymbolKind; position: [number, number, number]; color: string; speed: number };
+
+// Little maths facts each symbol shares when tapped.
+const symbolLines: Record<SymbolKind, () => string> = {
+  plus: pickLine(["2 + 2 = 4 ➕", "1 + 2 + … + 10 = 55 ✨"]),
+  minus: pickLine(["10 − 1 = 9 ➖", "Số âm nhỏ hơn 0 nhé!"]),
+  times: pickLine(["9 × 9 = 81 ✖️", "7 × 8 = 56 — nhớ nha!"]),
+  divide: pickLine(["Không chia được cho 0 đâu! ➗", "12 : 3 = 4"]),
+  equals: pickLine(["π ≈ 3,14159… 🥧", "Hai vế phải bằng nhau nhé ⚖️"]),
+};
 
 function Bar({ size, color, position }: { size: [number, number]; color: string; position?: [number, number, number] }) {
   return (
@@ -120,9 +148,34 @@ export function FloatingMathSymbols() {
     <group>
       {floatingSymbols.map((symbol) => (
         <Float key={symbol.kind} position={symbol.position} speed={symbol.speed} rotationIntensity={0.8} floatIntensity={1.2}>
-          <SymbolShape kind={symbol.kind} color={symbol.color} />
+          <FloatingSymbol {...symbol} />
         </Float>
       ))}
+    </group>
+  );
+}
+
+/** One floating symbol: a tap flips it round twice and shares a maths fact. */
+function FloatingSymbol({ kind, color }: SymbolProps) {
+  const { pokedAt, poke } = usePoke();
+  const spinRef = useRef<Group>(null);
+
+  useFrame(() => {
+    const spin = spinRef.current;
+    if (!spin) return;
+    const progress = Math.min(1, secondsSince(pokedAt) / 1.1);
+    spin.rotation.y = (1 - Math.cos(progress * Math.PI)) * Math.PI * 2;
+    spin.scale.setScalar(1 + Math.sin(progress * Math.PI) * 0.35);
+  });
+
+  return (
+    <group>
+      <Pokeable onPoke={poke} bubble={symbolLines[kind]} bubbleOffset={[0, 0.4, 0]}>
+        <group ref={spinRef}>
+          <SymbolShape kind={kind} color={color} />
+        </group>
+      </Pokeable>
+      <PokeBurst draw={drawSparkle} pokedAt={pokedAt} count={5} height={0.3} spread={0.3} size={0.09} />
     </group>
   );
 }
@@ -136,27 +189,37 @@ const hangingStars = [
   { position: [2.4, 4.3, 2.8], drop: 1.25, color: palette.coral },
 ] as const;
 
+const starLines = pickLine(["Ngôi sao chăm ngoan ⭐", "Con giỏi lắm! 🌟", "Lấp la lấp lánh ✨", "Thêm một sao cho bạn nhé 💫"]);
+
+/** Paper star on a string that sways; a tap spins it round and showers little stars. */
 function HangingStar({ position, drop, color, phase }: { position: readonly number[]; drop: number; color: string; phase: number }) {
   const ref = useRef<Group>(null);
+  const { pokedAt, poke } = usePoke();
   useFrame(({ clock }) => {
     const star = ref.current;
     if (!star) return;
-    star.rotation.y = Math.sin(clock.elapsedTime * 0.6 + phase) * 0.9;
-    star.rotation.z = Math.sin(clock.elapsedTime * 0.9 + phase) * 0.05;
+    const age = secondsSince(pokedAt);
+    const spin = (1 - Math.cos(Math.min(1, age / 1.4) * Math.PI)) * Math.PI * 2;
+    const swing = age < 3 ? Math.sin(age * 6) * Math.exp(-age * 1.3) * 0.25 : 0;
+    star.rotation.y = Math.sin(clock.elapsedTime * 0.6 + phase) * 0.9 + spin;
+    star.rotation.z = Math.sin(clock.elapsedTime * 0.9 + phase) * 0.05 + swing;
   });
 
   return (
-    <group position={position as [number, number, number]}>
-      <group ref={ref}>
-        <mesh position={[0, -drop / 2, 0]}>
-          <cylinderGeometry args={[0.003, 0.003, drop, 4]} />
-          <meshBasicMaterial color={palette.ink} />
-        </mesh>
-        <mesh position={[0, -drop - 0.1, -0.02]} castShadow>
-          <extrudeGeometry args={[smallStar, softExtrude]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
-      </group>
+    <group position={position as Vec3}>
+      <Pokeable onPoke={poke} bubble={starLines} bubbleOffset={[0, -drop + 0.2, 0]}>
+        <group ref={ref}>
+          <mesh position={[0, -drop / 2, 0]}>
+            <cylinderGeometry args={[0.003, 0.003, drop, 4]} />
+            <meshBasicMaterial color={palette.ink} />
+          </mesh>
+          <mesh position={[0, -drop - 0.1, -0.02]} castShadow>
+            <extrudeGeometry args={[smallStar, softExtrude]} />
+            <meshStandardMaterial color={color} />
+          </mesh>
+        </group>
+      </Pokeable>
+      <PokeBurst draw={drawStarGlyph} pokedAt={pokedAt} position={[0, -drop - 0.15, 0]} count={6} height={-0.4} spread={0.3} size={0.09} />
     </group>
   );
 }
@@ -188,23 +251,31 @@ export function ToyRug({ position }: { position: [number, number, number] }) {
         <meshStandardMaterial color={palette.paper} />
       </mesh>
 
-      {/* Geometry toys */}
-      <mesh position={[-0.45, 0.2, -0.2]} rotation={[0, 0.5, 0]} castShadow>
-        <coneGeometry args={[0.2, 0.36, 4]} />
-        <meshStandardMaterial color={palette.coral} flatShading />
-      </mesh>
-      <mesh position={[0.1, 0.14, -0.45]} castShadow>
-        <cylinderGeometry args={[0.13, 0.13, 0.26, 24]} />
-        <meshStandardMaterial color={palette.sky} />
-      </mesh>
-      <mesh position={[0.5, 0.13, 0.05]} castShadow>
-        <sphereGeometry args={[0.12, 24, 18]} />
-        <meshStandardMaterial color={palette.mint} />
-      </mesh>
-      <mesh position={[-0.1, 0.1, 0.45]} rotation={[Math.PI / 2, 0, 0.4]} castShadow>
-        <torusGeometry args={[0.13, 0.05, 12, 24]} />
-        <meshStandardMaterial color={palette.sunny} />
-      </mesh>
+      {/* Geometry toys: each one names its shape and hops when tapped */}
+      <Hopper position={[-0.45, 0.2, -0.2]} bubble="Hình chóp tứ giác 🔺">
+        <mesh rotation={[0, 0.5, 0]} castShadow>
+          <coneGeometry args={[0.2, 0.36, 4]} />
+          <meshStandardMaterial color={palette.coral} flatShading />
+        </mesh>
+      </Hopper>
+      <Hopper position={[0.1, 0.14, -0.45]} bubble="Hình trụ nè! 🥫">
+        <mesh castShadow>
+          <cylinderGeometry args={[0.13, 0.13, 0.26, 24]} />
+          <meshStandardMaterial color={palette.sky} />
+        </mesh>
+      </Hopper>
+      <Hopper position={[0.5, 0.13, 0.05]} bubble="Hình cầu lăn tròn ⚽">
+        <mesh castShadow>
+          <sphereGeometry args={[0.12, 24, 18]} />
+          <meshStandardMaterial color={palette.mint} />
+        </mesh>
+      </Hopper>
+      <Hopper position={[-0.1, 0.1, 0.45]} bubble="Hình xuyến — như bánh donut 🍩">
+        <mesh rotation={[Math.PI / 2, 0, 0.4]} castShadow>
+          <torusGeometry args={[0.13, 0.05, 12, 24]} />
+          <meshStandardMaterial color={palette.sunny} />
+        </mesh>
+      </Hopper>
 
       {/* Number blocks stacked like a tiny tower */}
       <NumberBlock index={0} position={[-0.05, 0.1, -0.02]} rotation={0.2} />
@@ -215,13 +286,39 @@ export function ToyRug({ position }: { position: [number, number, number] }) {
   );
 }
 
+const blockLines = pickLine(["1, 2, 3… đếm nào! 🔢", "Xếp hình giỏi quá! 🧱", "1 + 2 = 3 ✨"]);
+
 function NumberBlock({ index, position, rotation }: { index: number; position: [number, number, number]; rotation: number }) {
   const block = digitBlocks[index];
   const texture = useCanvasTexture(256, 256, block.draw);
   return (
-    <mesh position={position} rotation={[0, rotation, 0]} castShadow>
-      <boxGeometry args={[0.2, 0.2, 0.2]} />
-      <meshStandardMaterial map={texture} />
-    </mesh>
+    <Hopper position={position} bubble={blockLines}>
+      <mesh rotation={[0, rotation, 0]} castShadow>
+        <boxGeometry args={[0.2, 0.2, 0.2]} />
+        <meshStandardMaterial map={texture} />
+      </mesh>
+    </Hopper>
+  );
+}
+
+const HOP_SECONDS = 0.6;
+
+/** Rug toy that hops up with a full twirl when tapped. */
+function Hopper({ position, bubble, children }: { position: Vec3; bubble: string | (() => string); children: ReactNode }) {
+  const { pokedAt, poke } = usePoke();
+  const hopRef = useRef<Group>(null);
+
+  useFrame(() => {
+    const hop = hopRef.current;
+    if (!hop) return;
+    const progress = Math.min(1, secondsSince(pokedAt) / HOP_SECONDS);
+    hop.position.y = Math.sin(progress * Math.PI) * 0.28;
+    hop.rotation.y = (1 - Math.cos(progress * Math.PI)) * Math.PI;
+  });
+
+  return (
+    <Pokeable onPoke={poke} bubble={bubble} bubbleOffset={[0, 0.45, 0]} position={position}>
+      <group ref={hopRef}>{children}</group>
+    </Pokeable>
   );
 }
